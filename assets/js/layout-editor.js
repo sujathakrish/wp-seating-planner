@@ -29,7 +29,7 @@ jQuery(function ($) {
         const table = {
             id: 0,
             event_id: eventId,
-            type: "round",
+            shape: "round",
             label: "Table",
             x: 200,
             y: 100,
@@ -43,7 +43,7 @@ jQuery(function ($) {
         const table = {
             id: 0,
             event_id: eventId,
-            type: "rect",
+            shape: "rect",
             label: "Table",
             x: 300,
             y: 150,
@@ -72,7 +72,7 @@ jQuery(function ($) {
         const el = $("<div class='sp-table'></div>");
         el.attr("data-id", t.id);
 
-        if (t.type === "rect") {
+        if (t.shape === "rect") {
             el.addClass("rect");
         }
 
@@ -137,7 +137,7 @@ jQuery(function ($) {
             url: apiRoot + "tables/bulk/" + eventId,
             method: "POST",
             headers: { "X-WP-Nonce": nonce },
-            data: { tables: JSON.stringify(tables) },
+            data: { tables: tables },
             success: function () {
                 alert("Layout saved!");
             }
