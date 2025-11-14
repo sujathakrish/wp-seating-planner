@@ -1,0 +1,14 @@
+{
+  "name": "yourname/wp-seating-planner",
+  "type": "wordpress-plugin",
+  "require": {
+    "dompdf/dompdf": "^2.0",
+    "phpoffice/phpspreadsheet": "^2.1",
+    "league/csv": "^9.12"
+  },
+  "autoload": {
+    "psr-4": {
+      "WPSeatingPlanner\\": "includes/"
+    }
+  }
+}
