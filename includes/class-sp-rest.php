@@ -95,7 +95,7 @@ class SP_REST extends \WP_REST_Controller
         ]);
 
         // Alias: /guest (POST)
-        register_rest_route('sp/v1', '/guest', [
+        register_rest_route('sp/v1', '/guest/save', [
             'methods'  => 'POST',
             'callback' => [$this, 'save_guest'],
             'permission_callback' => function () {
@@ -394,7 +394,7 @@ class SP_REST extends \WP_REST_Controller
         $first_name = sanitize_text_field($request->get_param('first_name'));
         $last_name  = sanitize_text_field($request->get_param('last_name'));
         $party      = sanitize_text_field($request->get_param('party'));
-        $meal_type  = sanitize_text_field($request->get_param('meal_type'));
+        $meal  = sanitize_text_field($request->get_param('meal'));
         $notes      = sanitize_textarea_field($request->get_param('notes'));
         $is_child   = (int) !!$request->get_param('is_child');
 
@@ -403,7 +403,7 @@ class SP_REST extends \WP_REST_Controller
             'first_name' => $first_name,
             'last_name'  => $last_name,
             'party'      => $party,
-            'meal_type'  => $meal_type,
+            'meal'       => $meal,
             'notes'      => $notes,
             'is_child'   => $is_child,
             'updated_at' => current_time('mysql'),

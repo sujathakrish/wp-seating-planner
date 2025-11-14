@@ -25,15 +25,16 @@ class SP_Activator {
     $sql_guests = "CREATE TABLE IF NOT EXISTS {$prefix}sp_guests (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
       event_id BIGINT UNSIGNED NOT NULL,
-      first_name VARCHAR(80) NULL,
-      last_name VARCHAR(80) NULL,
-      party VARCHAR(120) NULL,
+      table_id BIGINT UNSIGNED NULL,
+      seat_index INT NULL,
+      first_name VARCHAR(100) NULL,
+      last_name VARCHAR(100) NULL,
+      party VARCHAR(100) NULL,
       is_child TINYINT(1) DEFAULT 0,
-      meal_type VARCHAR(30) NULL,
-      notes VARCHAR(100) NULL,
-      meta_json LONGTEXT NULL,
+      meal VARCHAR(100) NULL,
+      notes TEXT NULL,
       created_at DATETIME NULL, updated_at DATETIME NULL,
-      KEY event_id (event_id), KEY party (party)
+      KEY event_id (event_id)
     ) $charset;";
     $sql_assign = "CREATE TABLE IF NOT EXISTS {$prefix}sp_assignments (
       id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -53,8 +54,8 @@ class SP_Activator {
   private static function add_columns_if_missing(){
     global $wpdb; $p=$wpdb->prefix;
     $cols = $wpdb->get_col("DESC {$p}sp_guests",0);
-    if($cols && !in_array('meal_type',$cols,true)) $wpdb->query("ALTER TABLE {$p}sp_guests ADD COLUMN meal_type VARCHAR(30) NULL AFTER is_child");
-    if($cols && !in_array('notes',$cols,true)) $wpdb->query("ALTER TABLE {$p}sp_guests ADD COLUMN notes VARCHAR(100) NULL AFTER meal_type");
+    if($cols && !in_array('meal',$cols,true)) $wpdb->query("ALTER TABLE {$p}sp_guests ADD COLUMN meal VARCHAR(30) NULL AFTER is_child");
+    if($cols && !in_array('notes',$cols,true)) $wpdb->query("ALTER TABLE {$p}sp_guests ADD COLUMN notes VARCHAR(100) NULL AFTER meal");
     $colsE = $wpdb->get_col("DESC {$p}sp_events",0);
     if($colsE && !in_array('user_id',$colsE,true)) $wpdb->query("ALTER TABLE {$p}sp_events ADD COLUMN user_id BIGINT UNSIGNED NULL AFTER id");
     if($colsE && !in_array('event_date',$colsE,true)) $wpdb->query("ALTER TABLE {$p}sp_events ADD COLUMN event_date DATE NULL AFTER title");
