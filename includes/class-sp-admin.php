@@ -43,7 +43,7 @@ class SP_Admin {
         // Submenu: Layout Editor
         add_submenu_page(
             'sp_events',
-            __('Seating Layout Editor', 'wp-seating-planner'),
+            __('Layout Editor', 'wp-seating-planner'),
             __('Layout Editor', 'wp-seating-planner'),
             $capability,
             'sp_layout_editor',

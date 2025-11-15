@@ -1,6 +1,7 @@
 <?php
 /**
- * Layout Editor admin page
+ * Layout Editor Admin Page
+ * WP Seating Planner
  */
 
 if (!defined('ABSPATH')) {
@@ -11,284 +12,181 @@ global $wpdb;
 
 $current_user = get_current_user_id();
 $is_admin     = current_user_can('manage_options');
+
 $events_table = $wpdb->prefix . 'sp_events';
 
-// Fetch events for dropdown (similar logic as Events / Guest Manager)
+// --------------------------------------------------
+// Fetch events user is allowed to see
+// --------------------------------------------------
 if ($is_admin) {
+    // Admin: see all events + owner name
     $events = $wpdb->get_results("
-        SELECT e.*, u.display_name 
+        SELECT e.*, u.display_name AS owner_name
         FROM {$events_table} e
         LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
-        ORDER BY e.event_date DESC
+        ORDER BY e.event_date DESC, e.id DESC
     ");
 } else {
+    // Planner: see only own events
     $events = $wpdb->get_results(
         $wpdb->prepare("
-            SELECT e.*, u.display_name 
+            SELECT e.*, u.display_name AS owner_name
             FROM {$events_table} e
             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
             WHERE e.user_id = %d
-            ORDER BY e.event_date DESC
+            ORDER BY e.event_date DESC, e.id DESC
         ", $current_user)
     );
 }
 
-$selected_event_id = isset($_GET['event_id']) ? (int) $_GET['event_id'] : 0;
-$selected_event    = null;
-
-if ($selected_event_id && !empty($events)) {
-    foreach ($events as $ev) {
-        if ((int) $ev->id === $selected_event_id) {
-            $selected_event = $ev;
-            break;
-        }
-    }
-}
-?>
-<div class="wrap sp-wrap">
-    <h1 class="sp-title"><?php esc_html_e('Layout Editor', 'wp-seating-planner'); ?></h1>
-
-    <?php if (empty($events)): ?>
-        <p>
-            <?php esc_html_e('No events found. Please create an event first under Seating Planner → Seating Planner.', 'wp-seating-planner'); ?>
-        </p>
-        <?php return; ?>
-    <?php endif; ?>
-
-    <!-- Event selector -->
-    <form id="sp-layout-event-form" method="get" style="margin-bottom: 15px;">
-        <input type="hidden" name="page" value="sp-layout-editor" />
-        <label for="sp-layout-event">
-            <?php esc_html_e('Select Event:', 'wp-seating-planner'); ?>
-        </label>
-
-        <select id="sp-layout-event" name="event_id" onchange="this.form.submit()">
-            <option value="0"><?php esc_html_e('-- Choose an event --', 'wp-seating-planner'); ?></option>
-            <?php foreach ($events as $event): ?>
-                <?php
-                $owner = $event->display_name ? $event->display_name : __('Unknown', 'wp-seating-planner');
-                $label = sprintf(
-                    '%s (%s) — %s (%s)',
-                    $event->title,
-                    $event->event_date,
-                    $owner,
-                    __('Planner', 'wp-seating-planner')
-                );
-                ?>
-                <option value="<?php echo (int) $event->id; ?>" <?php selected($selected_event_id, (int) $event->id); ?>>
-                    <?php echo esc_html($label); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-    </form>
-
-    <?php if (!$selected_event): ?>
-        <p><?php esc_html_e('Please select an event above to edit its seating layout.', 'wp-seating-planner'); ?></p>
-        <?php return; ?>
-    <?php endif; ?>
-
-    <?php
-    // Enqueue layout editor assets for this page
-    wp_enqueue_script('jquery-ui-draggable');
-
-    // Register script handle if not already
-    wp_register_script(
-        'sp-layout-editor',
-        SP_PLUGIN_URL . 'assets/js/layout-editor.js',
-        ['jquery', 'jquery-ui-draggable'],
-        filemtime(SP_PLUGIN_DIR . 'assets/js/layout-editor.js'),
-        true
-    );
-
-    wp_enqueue_script('sp-layout-editor');
-
-    wp_localize_script('sp-layout-editor', 'SP_LAYOUT', [
-        'root'    => esc_url_raw(rest_url('sp/v1/')),
-        'nonce'   => wp_create_nonce('wp_rest'),
-        'eventId' => $selected_event_id,
-    ]);
-    ?>
-
-    <h2>
-        <?php
-        printf(
-            /* translators: 1: event title, 2: event date */
-            esc_html__('Editing layout for "%1$s" (%2$s)', 'wp-seating-planner'),
-            esc_html($selected_event->title),
-            esc_html($selected_event->event_date)
-        );
-        ?>
-    </h2>
-
-    <div class="sp-layout-toolbar" style="margin: 10px 0;">
-        <button id="sp-add-round" class="button button-primary">
-            <?php esc_html_e('Add Round Table', 'wp-seating-planner'); ?>
-        </button>
-        <button id="sp-add-rect" class="button button-primary">
-            <?php esc_html_e('Add Rectangular Table', 'wp-seating-planner'); ?>
-        </button>
-        <button id="sp-save-layout" class="button">
-            <?php esc_html_e('Save Layout', 'wp-seating-planner'); ?>
-        </button>
-        <button id="sp-auto-seat" class="button">
-            <?php esc_html_e('Auto-Seat by Party', 'wp-seating-planner'); ?>
-        </button>
-    </div>
-
-    <div id="sp-layout-wrapper" style="border:1px solid #ccc; background:#f9f9f9; padding:10px; border-radius:6px; height:700px; overflow:auto;">
-        <div id="sp-layout-canvas" style="position:relative; width:2000px; height:1200px;">
-            <!-- Tables rendered by layout-editor.js -->
-        </div>
-    </div>
-
-    <p style="margin-top:10px; font-size:12px; color:#666;">
-        <?php esc_html_e('Drag tables around to arrange them. Click "Save Layout" to persist positions. Auto-seat will propose a simple grouping by party.', 'wp-seating-planner'); ?>
-    </p>
-</div>
-<?php
-/**
- * Layout Editor admin page
- */
-
-if (!defined('ABSPATH')) {
-    exit;
+if (empty($events)) {
+    echo '<div class="notice notice-error"><p>'
+        . esc_html__('No events found. Please create an event first.', 'wp-seating-planner')
+        . '</p></div>';
+    return;
 }
 
-global $wpdb;
+// --------------------------------------------------
+// Determine current event_id
+// --------------------------------------------------
+$requested_id = isset($_GET['event_id']) ? (int) $_GET['event_id'] : 0;
 
-$current_user = get_current_user_id();
-$is_admin     = current_user_can('manage_options');
-$events_table = $wpdb->prefix . 'sp_events';
+// Make sure requested event is one of the allowed ones
+$event_map = [];
+foreach ($events as $e) {
+    $event_map[(int) $e->id] = $e;
+}
 
-// Fetch events for dropdown (similar logic as Events / Guest Manager)
-if ($is_admin) {
-    $events = $wpdb->get_results("
-        SELECT e.*, u.display_name 
-        FROM {$events_table} e
-        LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
-        ORDER BY e.event_date DESC
-    ");
+if ($requested_id && isset($event_map[$requested_id])) {
+    $current_event = $event_map[$requested_id];
 } else {
-    $events = $wpdb->get_results(
-        $wpdb->prepare("
-            SELECT e.*, u.display_name 
-            FROM {$events_table} e
-            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
-            WHERE e.user_id = %d
-            ORDER BY e.event_date DESC
-        ", $current_user)
-    );
+    // fall back to first event in list
+    $current_event = reset($events);
+    $requested_id  = (int) $current_event->id;
 }
 
-$selected_event_id = isset($_GET['event_id']) ? (int) $_GET['event_id'] : 0;
-$selected_event    = null;
-
-if ($selected_event_id && !empty($events)) {
-    foreach ($events as $ev) {
-        if ((int) $ev->id === $selected_event_id) {
-            $selected_event = $ev;
-            break;
-        }
-    }
+// Nicely formatted label for current event
+$current_label = $current_event->title;
+if (!empty($current_event->event_date)) {
+    $current_label .= ' (' . $current_event->event_date . ')';
 }
+if ($is_admin && !empty($current_event->owner_name)) {
+    $current_label .= ' — ' . $current_event->owner_name . ' (' . __('Planner', 'wp-seating-planner') . ')';
+}
+
+// --------------------------------------------------
+// Enqueue JS & CSS for the layout editor
+// --------------------------------------------------
+wp_enqueue_script('jquery-ui-draggable');
+
+wp_enqueue_style(
+    'sp-admin-css',
+    SP_PLUGIN_URL . 'assets/css/admin.css',
+    [],
+    filemtime(SP_PLUGIN_DIR . 'assets/css/admin.css')
+);
+
+wp_enqueue_script(
+    'sp-layout-editor',
+    SP_PLUGIN_URL . 'assets/js/layout-editor.js',
+    ['jquery', 'jquery-ui-draggable'],
+    filemtime(SP_PLUGIN_DIR . 'assets/js/layout-editor.js'),
+    true
+);
+
+// Localize data expected by assets/js/layout-editor.js
+$layout_local = [
+    'root'    => esc_url_raw(rest_url('sp/v1/')),
+    'nonce'   => wp_create_nonce('wp_rest'),
+    'eventId' => $requested_id,
+];
+
+wp_localize_script('sp-layout-editor', 'SP_LAYOUT', $layout_local);
+// Backwards compatible alias (if any old code used spData)
+wp_localize_script('sp-layout-editor', 'spData', $layout_local);
 ?>
-<div class="wrap sp-wrap">
-    <h1 class="sp-title"><?php esc_html_e('Layout Editor', 'wp-seating-planner'); ?></h1>
 
-    <?php if (empty($events)): ?>
-        <p>
-            <?php esc_html_e('No events found. Please create an event first under Seating Planner → Seating Planner.', 'wp-seating-planner'); ?>
-        </p>
-        <?php return; ?>
-    <?php endif; ?>
+<div class="wrap sp-wrap sp-layout-editor-wrap">
+    <h1 class="sp-title">
+        <?php esc_html_e('Layout Editor', 'wp-seating-planner'); ?>
+    </h1>
 
     <!-- Event selector -->
-    <form id="sp-layout-event-form" method="get" style="margin-bottom: 15px;">
-        <input type="hidden" name="page" value="sp-layout-editor" />
+    <div class="sp-layout-toolbar" style="margin-bottom: 15px;">
         <label for="sp-layout-event">
             <?php esc_html_e('Select Event:', 'wp-seating-planner'); ?>
         </label>
 
-        <select id="sp-layout-event" name="event_id" onchange="this.form.submit()">
-            <option value="0"><?php esc_html_e('-- Choose an event --', 'wp-seating-planner'); ?></option>
+        <select id="sp-layout-event">
             <?php foreach ($events as $event): ?>
                 <?php
-                $owner = $event->display_name ? $event->display_name : __('Unknown', 'wp-seating-planner');
-                $label = sprintf(
-                    '%s (%s) — %s (%s)',
-                    $event->title,
-                    $event->event_date,
-                    $owner,
-                    __('Planner', 'wp-seating-planner')
-                );
+                $label = $event->title;
+                if (!empty($event->event_date)) {
+                    $label .= ' (' . $event->event_date . ')';
+                }
+                if ($is_admin && !empty($event->owner_name)) {
+                    $label .= ' — ' . $event->owner_name . ' (' . __('Planner', 'wp-seating-planner') . ')';
+                }
                 ?>
-                <option value="<?php echo (int) $event->id; ?>" <?php selected($selected_event_id, (int) $event->id); ?>>
+                <option value="<?php echo (int) $event->id; ?>"
+                    <?php selected((int) $event->id, $requested_id); ?>>
                     <?php echo esc_html($label); ?>
                 </option>
             <?php endforeach; ?>
         </select>
-    </form>
 
-    <?php if (!$selected_event): ?>
-        <p><?php esc_html_e('Please select an event above to edit its seating layout.', 'wp-seating-planner'); ?></p>
-        <?php return; ?>
-    <?php endif; ?>
+        <span class="sp-layout-current-label">
+            <?php
+            printf(
+                /* translators: %s = event label */
+                esc_html__('Editing Event: %s', 'wp-seating-planner'),
+                esc_html($current_label)
+            );
+            ?>
+        </span>
+    </div>
 
-    <?php
-    // Enqueue layout editor assets for this page
-    wp_enqueue_script('jquery-ui-draggable');
-
-    // Register script handle if not already
-    wp_register_script(
-        'sp-layout-editor',
-        SP_PLUGIN_URL . 'assets/js/layout-editor.js',
-        ['jquery', 'jquery-ui-draggable'],
-        filemtime(SP_PLUGIN_DIR . 'assets/js/layout-editor.js'),
-        true
-    );
-
-    wp_enqueue_script('sp-layout-editor');
-
-    wp_localize_script('sp-layout-editor', 'SP_LAYOUT', [
-        'root'    => esc_url_raw(rest_url('sp/v1/')),
-        'nonce'   => wp_create_nonce('wp_rest'),
-        'eventId' => $selected_event_id,
-    ]);
-    ?>
-
-    <h2>
-        <?php
-        printf(
-            /* translators: 1: event title, 2: event date */
-            esc_html__('Editing layout for "%1$s" (%2$s)', 'wp-seating-planner'),
-            esc_html($selected_event->title),
-            esc_html($selected_event->event_date)
-        );
-        ?>
-    </h2>
-
-    <div class="sp-layout-toolbar" style="margin: 10px 0;">
+    <!-- Layout controls -->
+    <div class="sp-layout-toolbar" style="margin-bottom: 15px; display:flex; flex-wrap:wrap; gap:8px;">
         <button id="sp-add-round" class="button button-primary">
             <?php esc_html_e('Add Round Table', 'wp-seating-planner'); ?>
         </button>
+
         <button id="sp-add-rect" class="button button-primary">
-            <?php esc_html_e('Add Rectangular Table', 'wp-seating-planner'); ?>
+            <?php esc_html_e('Add Rectangle Table', 'wp-seating-planner'); ?>
         </button>
-        <button id="sp-save-layout" class="button">
-            <?php esc_html_e('Save Layout', 'wp-seating-planner'); ?>
-        </button>
+
         <button id="sp-auto-seat" class="button">
             <?php esc_html_e('Auto-Seat by Party', 'wp-seating-planner'); ?>
         </button>
+
+        <button id="sp-save-layout" class="button">
+            <?php esc_html_e('Save Layout', 'wp-seating-planner'); ?>
+        </button>
     </div>
 
-    <div id="sp-layout-wrapper" style="border:1px solid #ccc; background:#f9f9f9; padding:10px; border-radius:6px; height:700px; overflow:auto;">
-        <div id="sp-layout-canvas" style="position:relative; width:2000px; height:1200px;">
-            <!-- Tables rendered by layout-editor.js -->
+    <!-- Canvas -->
+    <div class="sp-layout-container" style="border:1px solid #ddd; background:#f9f9f9; height:700px; overflow:auto;">
+        <div id="sp-layout-canvas" class="sp-layout-canvas" style="position:relative; width:2000px; height:1200px;">
+            <!-- Tables will be injected here by layout-editor.js -->
         </div>
     </div>
 
-    <p style="margin-top:10px; font-size:12px; color:#666;">
-        <?php esc_html_e('Drag tables around to arrange them. Click "Save Layout" to persist positions. Auto-seat will propose a simple grouping by party.', 'wp-seating-planner'); ?>
+    <p style="margin-top:15px; max-width:600px; font-size:12px; color:#666;">
+        <?php esc_html_e('Drag tables around to arrange your floor plan. Use the Save Layout button to persist table positions.', 'wp-seating-planner'); ?>
     </p>
 </div>
+
+<script>
+    // Change event selector -> reload page with ?event_id=
+    (function () {
+        const sel = document.getElementById('sp-layout-event');
+        if (!sel) return;
+
+        sel.addEventListener('change', function () {
+            const url = new URL(window.location.href);
+            url.searchParams.set('event_id', this.value);
+            window.location.href = url.toString();
+        });
+    })();
+</script>
