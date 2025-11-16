@@ -492,59 +492,59 @@ class SP_REST extends \WP_REST_Controller
         return $rows ?: [];
     }
 
-    public function add_table(WP_REST_Request $request)
-    {
-        global $wpdb;
+public function add_table(WP_REST_Request $request) {
+    global $wpdb;
 
-        $event_id = (int) $request->get_param('event_id');
-        if (!$event_id) {
-            return new WP_Error('missing_event', 'Missing event_id.', ['status' => 400]);
-        }
-        if (!$this->can_manage_event($event_id)) {
-            return new WP_Error('forbidden', 'You cannot edit this layout.', ['status' => 403]);
-        }
-
-        $shape    = sanitize_text_field($request->get_param('shape') ?: 'round');
-        $capacity = (int) $request->get_param('capacity') ?: 8;
-        $x        = (int) $request->get_param('x');
-        $y        = (int) $request->get_param('y');
-        $width    = (int) $request->get_param('width') ?: 100;
-        $height   = (int) $request->get_param('height') ?: 100;
-        $label    = sanitize_text_field($request->get_param('label') ?: '');
-
-        $table = $wpdb->prefix . 'sp_tables';
-
-        $ok = $wpdb->insert($table, [
-            'event_id'   => $event_id,
-            'shape'      => $shape,
-            'capacity'   => $capacity,
-            'x'          => $x,
-            'y'          => $y,
-            'width'      => $width,
-            'height'     => $height,
-            'name'       => $label,
-            'created_at' => current_time('mysql'),
-            'updated_at' => current_time('mysql'),
-        ]);
-
-        if (!$ok) {
-            return new WP_Error('db_error', 'Failed to add table.', ['status' => 500]);
-        }
-
-        $id = (int) $wpdb->insert_id;
-
-        return [
-            'id'        => $id,
-            'event_id'  => $event_id,
-            'shape'     => $shape,
-            'capacity'  => $capacity,
-            'x'         => $x,
-            'y'         => $y,
-            'width'     => $width,
-            'height'    => $height,
-            'label'     => $label,
-        ];
+    $event_id = (int) $request->get_param('event_id');
+    if (!$event_id) {
+        return new WP_Error('missing_event', __('Missing event_id.', 'wp-seating-planner'), ['status' => 400]);
     }
+    if (!$this->can_manage_event($event_id)) {
+        return new WP_Error('forbidden', __('You cannot edit this layout.', 'wp-seating-planner'), ['status' => 403]);
+    }
+
+    // ---- IMPORTANT FIX: Force proper types ----
+    $shape    = sanitize_text_field($request->get_param('shape') ?: 'round');
+    $label    = sanitize_text_field($request->get_param('label') ?: '');
+    $capacity = intval($request->get_param('capacity') ?: 8);
+    $x        = intval($request->get_param('x') ?: 100);
+    $y        = intval($request->get_param('y') ?: 100);
+    $width    = intval($request->get_param('width') ?: 120);
+    $height   = intval($request->get_param('height') ?: 120);
+
+    $table = $wpdb->prefix . 'sp_tables';
+
+    $ok = $wpdb->insert($table, [
+        'event_id' => $event_id,
+        'shape'    => $shape,
+        'capacity' => $capacity,
+        'x'        => $x,
+        'y'        => $y,
+        'width'    => $width,
+        'height'   => $height,
+        'label'    => $label,
+    ]);
+
+    if (!$ok) {
+        return new WP_Error(
+            'db_error',
+            __('Failed to add table.', 'wp-seating-planner'),
+            ['status' => 500, 'wpdb_error' => $wpdb->last_error]
+        );
+    }
+
+    return [
+        'id'        => (int) $wpdb->insert_id,
+        'event_id'  => $event_id,
+        'shape'     => $shape,
+        'capacity'  => $capacity,
+        'x'         => $x,
+        'y'         => $y,
+        'width'     => $width,
+        'height'    => $height,
+        'label'     => $label,
+    ];
+}
 
     public function update_table(WP_REST_Request $request)
     {
